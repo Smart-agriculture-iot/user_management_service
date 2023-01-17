@@ -1,0 +1,28 @@
+name: Run up or down container container 
+
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: 'Docker compose command'
+        required: true
+        default: 'up -d'
+        type: choice
+        options:
+        - up -d
+        - down
+        - build
+
+env: 
+  HOMEFOLDER: "/home/github-runner/FASTAPI_AUTH"
+
+jobs:
+  run_container: 
+    name: run the docker containers
+    runs-on: 
+      - api-dev
+    steps:
+    - name: run up the container
+      run: |-
+        cd $HOMEFOLDER/current
+        docker-compose ${{ github.event.inputs.command }}

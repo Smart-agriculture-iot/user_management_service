@@ -1,0 +1,36 @@
+version: "3"
+
+services:
+  authentication:
+    build: .
+    image: authentication
+    container_name: authentication
+    ports: 
+      - "7800:80"
+    depends_on:
+      - database
+    networks:
+      - infrastructure_default
+
+  database:
+    image: postgres:9.6.17-alpine
+    container_name: database
+    restart: always
+    environment:
+      - POSTGRES_DB=authentication
+      - POSTGRES_USER=api
+      - POSTGRES_PASSWORD=apidev
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    expose: 
+      - 5432
+    networks:
+      - infrastructure_default
+
+volumes:
+  db-data:
+    driver: local
+
+networks:
+  infrastructure_default:
+    external: true

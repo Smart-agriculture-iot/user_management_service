@@ -1,0 +1,53 @@
+name: Deploy code to server
+on:
+  push:
+    branches: ["main"]
+
+env: 
+  HOMEFOLDER: "/home/github-runner/FASTAPI_AUTH"
+  NETWORK_NAME: infrastructure_default
+  KEEP_RELEASES: "3"
+
+jobs:
+  copy_to_folder:
+    name: Update code to server
+    runs-on: api-dev
+    steps:
+      - uses: actions/checkout@v3
+      - name: copy to target folder
+        run: |-
+          if [ -z $(docker network ls --filter name=^${NETWORK_NAME}$ --format="{{ .Name }}") ] ; then 
+          docker network create ${NETWORK_NAME} ; 
+          fi
+          mkdir -p $HOMEFOLDER
+          rsync -rltgoEDvz -e "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" * $HOMEFOLDER/${GITHUB_SHA::7}
+ 
+  build_image:
+    runs-on: api-dev
+    needs: copy_to_folder 
+    steps:
+      - name: build docker images
+        run: |-
+          cd $HOMEFOLDER/${GITHUB_SHA::7}
+          docker-compose build
+
+  deploy_to_current:
+    name: Deploy to current folder
+    runs-on: api-dev
+    needs: build_image 
+    steps:
+    - name: deploy to current folder
+      run: |-
+        cd $HOMEFOLDER
+        mkdir -p current
+        rsync -rltgoEDvz --del --delete $HOMEFOLDER/${GITHUB_SHA::7}/ $HOMEFOLDER/current/
+  
+  clean_up:
+    name: Cleanup old files
+    runs-on: api-dev
+    needs: deploy_to_current 
+    steps:
+    - name: remove old folders
+      run: |-
+        cd $HOMEFOLDER
+        ls -tr -I ${GITHUB_SHA::7} | head -n -$KEEP_RELEASES | xargs rm -rf
